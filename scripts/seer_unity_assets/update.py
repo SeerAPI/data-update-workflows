@@ -30,7 +30,7 @@ async def process_package(
             config["updater_name"],
             *config["update_args"],
             manifest_path=get_manifest_path(package_name),
-            timeout=60.0,
+            timeout=180.0,
             ignore_version=force,
             min_size=config.get("min_size"),
             max_size=config.get("max_size"),
