@@ -33,6 +33,7 @@ CONFIG: dict[str, PackageConfig] = {
             "*art_ui_titlebg*",
             "*art_ui_namecard*",
             "*art_ui_common*",
+            "*art_ui_effecticon*",
             "*assets_art_ui_assets_pet_head*",
             "*assets_art_ui_assets_pet_body*",
             "*assets_art_ui_assets_archive*",
