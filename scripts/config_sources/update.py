@@ -1,18 +1,24 @@
 import asyncio
 import hashlib
-from itertools import chain
 import random
 import sys
-from typing import Any, TypeVar
-from abc import ABC, abstractmethod
-from pathlib import Path
 import zlib
-from typing_extensions import override
+from abc import ABC, abstractmethod
+from itertools import chain
+from pathlib import Path
+from typing import Any, TypeVar
 
 import httpx
 import xmltodict
 from solaris import parse
+from typing_extensions import override
 
+from scripts._common import (
+    DataRepoManager,
+    get_current_time_str,
+    retry_call,
+    write_to_github_output,
+)
 from scripts.config_sources._download_github_directory import (
     DownloadTask,
     collect_directory_tasks,
@@ -22,19 +28,14 @@ from scripts.config_sources._swf_handle import (
     extract_binary_data,
     extract_swf_data,
 )
-from scripts._common import (
-    DataRepoManager,
-    get_current_time_str,
-    retry_call,
-    write_to_github_output,
-)
-
 
 HTML5_BASE_URL = "https://seerh5.61.com"
 HTML5_VERSION_CHECK_URL = (
     f"{HTML5_BASE_URL}/version/version.json?t={random.uniform(0.01, 0.09)}"
 )
 UNITY_VERSION_CHECK_URL = "https://raw.githubusercontent.com/SeerAPI/seer-unity-assets/refs/heads/main/package-manifests/ConfigPackage.json"
+CLOTH_POS_RAW_URL = "https://raw.githubusercontent.com/SeerAPI/seer-unity-assets/refs/heads/main/newseer/assets/art/ui/assets/item/cloth/prev/config.json"
+CLOTH_POS_DEST_FILENAME = "clothPos.json"
 
 
 def get_file_hash(data: bytes) -> str:
@@ -198,8 +199,8 @@ class Flash(Platform):
             Path(f"{self.work_dir}/{filename}.xml").write_bytes(value)
 
     def get_prexml_configs(self) -> None:
-        import zipfile
         import io
+        import zipfile
 
         swf = self._get_prexml_swf()
         prexml_dir = Path(self.work_dir) / "prexml"
@@ -318,6 +319,21 @@ class Unity(Platform):
             source_dir=temp_dir,
             output_dir=self.work_dir,
         )
+
+        # 导入装备位置配置（已是合法 JSON，原样复制，无需 solaris 解析）
+        self._import_cloth_pos()
+
+    def _import_cloth_pos(self) -> None:
+        """从 seer-unity-assets 导入装备位置配置到 unity/clothPos.json"""
+        response = retry_call(
+            httpx.get,
+            url=CLOTH_POS_RAW_URL,
+            max_retries=3,
+        )
+        response.raise_for_status()
+        dest = self.work_dir / CLOTH_POS_DEST_FILENAME
+        dest.write_bytes(response.content)
+        print(f"✅ 已导入装备位置配置: {dest}")
 
 
 async def run(*, force: bool = False) -> None:
